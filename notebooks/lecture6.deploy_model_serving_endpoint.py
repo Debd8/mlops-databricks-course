@@ -1,23 +1,36 @@
 # Databricks notebook source
-# MAGIC %pip install marvel_characters-1.0.1-py3-none-any.whl
+# Databricks only, comment out when running locally
+import os
+import subprocess
 
-# COMMAND ----------
-# MAGIC %restart_python
+databricks_user = "your-email@gmail.com"
+whl_path = f"/Workspace/Users/{databricks_user}/.bundle/dev/marvel-characters/files/dist/marvel_characters-0.1.0-py3-none-any.whl"
+
+result = subprocess.run(
+    ["pip", "install", whl_path],
+    capture_output=True, text=True
+)
+print(result.stdout)
+print(result.stderr)
 
 # COMMAND ----------
 import time
-import os
 import requests
 from pyspark.dbutils import DBUtils
 from pyspark.sql import SparkSession
 from mlflow import mlflow
 from databricks.sdk import WorkspaceClient
-from dotenv import load_dotenv
+
 
 from marvel_characters.config import ProjectConfig
 from marvel_characters.serving.model_serving import ModelServing
 from marvel_characters.utils import is_databricks
 
+# COMMAND ----------
+if is_databricks():
+    base_path = f"/Workspace/Users/{databricks_user}/.bundle/dev/marvel-characters/files"
+else:
+    base_path = os.path.abspath("../")
 
 # COMMAND ----------
 # spark session
@@ -29,13 +42,14 @@ os.environ["DBR_HOST"] = w.config.host
 os.environ["DBR_TOKEN"] = w.tokens.create(lifetime_seconds=1200).token_value
 
 if not is_databricks():
+    from dotenv import load_dotenv
     load_dotenv()
     profile = os.environ["PROFILE"]
     mlflow.set_tracking_uri(f"databricks://{profile}")
     mlflow.set_registry_uri(f"databricks-uc://{profile}")
 
 # Load project config
-config = ProjectConfig.from_yaml(config_path="../project_config_marvel.yml", env="dev")
+config = ProjectConfig.from_yaml(config_path=f"{base_path}/project_config_marvel.yml", env="dev")
 catalog_name = config.catalog_name
 schema_name = config.schema_name
 
@@ -120,4 +134,4 @@ for i in range(len(dataframe_records)):
     print(f"Response Status: {status_code}")
     print(f"Response Text: {response_text}")
     time.sleep(0.2) 
-# COMMAND ----------
+
