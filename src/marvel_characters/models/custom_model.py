@@ -1,4 +1,5 @@
 from datetime import datetime
+from importlib.metadata import version as get_version
 
 import mlflow
 import numpy as np
@@ -6,7 +7,7 @@ import pandas as pd
 from mlflow import MlflowClient
 from mlflow.models import infer_signature
 from mlflow.pyfunc import PythonModelContext
-from mlflow.utils.environment import _mlflow_conda_env
+#from mlflow.utils.environment import _mlflow_conda_env
 
 from marvel_characters.config import Tags
 
@@ -48,11 +49,11 @@ class MarvelModelWrapper(mlflow.pyfunc.PythonModel):
         """
         mlflow.set_experiment(experiment_name=experiment_name)
         with mlflow.start_run(run_name=f"wrapper-lightgbm-{datetime.now().strftime('%Y-%m-%d')}", tags=tags.to_dict()):
-            additional_pip_deps = []
-            for package in code_paths:
-                whl_name = package.split("/")[-1]
-                additional_pip_deps.append(f"code/{whl_name}")
-            conda_env = _mlflow_conda_env(additional_pip_deps=additional_pip_deps)
+            #additional_pip_deps = []
+            #for package in code_paths:
+            #    whl_name = package.split("/")[-1]
+            #    additional_pip_deps.append(f"code/{whl_name}")
+            #conda_env = _mlflow_conda_env(additional_pip_deps=additional_pip_deps)
 
             signature = infer_signature(model_input=input_example, model_output={"Survival prediction": ["alive"]})
             model_info = mlflow.pyfunc.log_model(
@@ -61,7 +62,13 @@ class MarvelModelWrapper(mlflow.pyfunc.PythonModel):
                 artifacts={"lightgbm-pipeline": wrapped_model_uri},
                 signature=signature,
                 code_paths=code_paths,
-                conda_env=conda_env,
+                #conda_env=conda_env,
+                pip_requirements=[
+                    f"marvel_characters=={get_version('marvel_characters')}",
+                    "lightgbm",
+                    "scikit-learn"
+                ],
+                input_example=input_example,
             )
         client = MlflowClient()
         registered_model = mlflow.register_model(
