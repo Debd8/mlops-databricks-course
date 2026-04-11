@@ -18,6 +18,7 @@ jobs:
       - name: Git tag from version.txt
         run: |
           echo "VERSION=$(cat version.txt)"
+          echo "VERSION=$VERSION"
           git tag $VERSION
 
       - name: Install uv
