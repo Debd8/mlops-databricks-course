@@ -23,7 +23,6 @@ It is used to build classification and feature engineering models for various ML
 # Scripts
 
 - `01.process_data.py`: Loads and preprocesses the Marvel dataset, splits into train/test, and saves to the catalog.
-- `02.train_register_fe_model.py`: Performs feature engineering and trains the Marvel character model.
+- `02.train_register_custom_model.py`: Performs feature engineering and trains the Marvel character custom model.
 - `03.deploy_model.py`: Deploys the trained Marvel model to a Databricks model serving endpoint.
-- `04.post_commit_status.py`: Posts status updates for Marvel integration tests to GitHub.
-- `05.refresh_monitor.py`: Refreshes monitoring tables and dashboards for Marvel model serving.
+- `04.refresh_monitor.py`: Refreshes monitoring tables and dashboards for Marvel model serving.
