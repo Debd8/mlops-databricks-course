@@ -1,43 +1,65 @@
 # Databricks notebook source
-
-import mlflow
-from pyspark.sql import SparkSession
-
-from marvel_characters.config import ProjectConfig, Tags
-from marvel_characters.models.custom_model import MarvelModelWrapper
-from importlib.metadata import version
-from dotenv import load_dotenv
-from mlflow import MlflowClient
 import os
+import subprocess
 
 # Set up Databricks or local MLflow tracking
 def is_databricks():
     return "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 # COMMAND ----------
+# Databricks only, comment out when running locally
+databricks_user = "your-email@gmail.com"
+whl_path = f"/Workspace/Users/{databricks_user}/.bundle/dev/marvel-characters/files/dist/marvel_characters-0.1.0-py3-none-any.whl"
+
+result = subprocess.run(
+    ["pip", "install", whl_path],
+    capture_output=True, text=True
+)
+print(result.stdout)
+print(result.stderr)
+
+# COMMAND ----------
+if is_databricks():
+    base_path = f"/Workspace/Users/{databricks_user}/.bundle/dev/marvel-characters/files"
+else:
+    base_path = os.path.abspath("../")
+
+# COMMAND ----------
+# Run brew install libomp to install libomp on macOS if you get an error related to libomp when running the notebook locally
+import mlflow
+from pyspark.sql import SparkSession
+
+from marvel_characters.config import ProjectConfig, Tags
+from marvel_characters.models.custom_model import MarvelModelWrapper
+from importlib.metadata import version as get_version
+from mlflow import MlflowClient
+
+# COMMAND ----------
 # If you have DEFAULT profile and are logged in with DEFAULT profile,
 # skip these lines
 
 if not is_databricks():
+    from dotenv import load_dotenv
     load_dotenv()
     profile = os.environ["PROFILE"]
     mlflow.set_tracking_uri(f"databricks://{profile}")
     mlflow.set_registry_uri(f"databricks-uc://{profile}")
 
-
-config = ProjectConfig.from_yaml(config_path="../project_config_marvel.yml", env="dev")
+config = ProjectConfig.from_yaml(config_path=f"{base_path}/project_config_marvel.yml", env="dev")
 spark = SparkSession.builder.getOrCreate()
 tags = Tags(**{"git_sha": "abcd12345", "branch": "main"})
-marvel_characters_v = version("marvel_characters")
+marvel_characters_v = get_version("marvel_characters")
 
-code_paths=[f"../dist/marvel_characters-{marvel_characters_v}-py3-none-any.whl"]
+code_paths = [f"{base_path}/dist/marvel_characters-{marvel_characters_v}-py3-none-any.whl"]
+print(f"Using wheel: {code_paths[0]}")  # Verify before running
 
 # COMMAND ----------
+# Initialize model with the config path
 client = MlflowClient()
 wrapped_model_version = client.get_model_version_by_alias(
     name=f"{config.catalog_name}.{config.schema_name}.marvel_character_model_basic",
     alias="latest-model")
-# Initialize model with the config path
+
 
 # COMMAND ----------
 test_set = spark.table(f"{config.catalog_name}.{config.schema_name}.test_set").toPandas()
@@ -55,14 +77,14 @@ wrapper.log_register_model(wrapped_model_uri=f"models:/{wrapped_model_version.mo
 
 # COMMAND ----------
 # unwrap and predict
-loaded_pufunc_model = mlflow.pyfunc.load_model(f"models:/{pyfunc_model_name}@latest-model")
+loaded_pyfunc_model = mlflow.pyfunc.load_model(f"models:/{pyfunc_model_name}@latest-model")
 
-unwraped_model = loaded_pufunc_model.unwrap_python_model()
+unwraped_model = loaded_pyfunc_model.unwrap_python_model()
 
 # COMMAND ----------
 unwraped_model.predict(context=None, model_input=X_test[0:1])
 # COMMAND ----------
 # another predict function with uri
 
-loaded_pufunc_model.predict(X_test[0:1])
+loaded_pyfunc_model.predict(X_test[0:1])
 # COMMAND ----------

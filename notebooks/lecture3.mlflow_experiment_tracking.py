@@ -1,10 +1,6 @@
 # Databricks notebook source
-import json
 import os
-
-import mlflow
-from dotenv import load_dotenv
-
+import subprocess
 
 # Set up Databricks or local MLflow tracking
 def is_databricks() -> bool:
@@ -12,30 +8,55 @@ def is_databricks() -> bool:
     return "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 # COMMAND ----------
+# Databricks only, comment out when running locally
+databricks_user = "your-email@gmail.com"
+whl_path = f"/Workspace/Users/{databricks_user}/.bundle/dev/marvel-characters/files/dist/marvel_characters-0.1.0-py3-none-any.whl"
+
+result = subprocess.run(
+    ["pip", "install", whl_path],
+    capture_output=True, text=True
+)
+print(result.stdout)
+print(result.stderr)
+
+# COMMAND ----------
+if is_databricks():
+    base_path = f"/Workspace/Users/{databricks_user}/.bundle/dev/marvel-characters/files"
+else:
+    base_path = os.path.abspath("../")
+
+# COMMAND ----------
+import json
+import mlflow
+
 mlflow.get_tracking_uri()
 
 # COMMAND ----------
 if not is_databricks():
+    from dotenv import load_dotenv
     load_dotenv()
     profile = os.environ.get("PROFILE")
     mlflow.set_tracking_uri(f"databricks://{profile}")
     mlflow.set_registry_uri(f"databricks-uc://{profile}")
 
 mlflow.get_tracking_uri()
+
 # COMMAND ----------
 experiment = mlflow.set_experiment(experiment_name="/Shared/marvel-demo")
 mlflow.set_experiment_tags({"repository_name": "marvelousmlops/marvel-characters"})
 
 print(experiment)
+
 # COMMAND ----------
 # dump class attributes in a json file for visualization
-os.makedirs("../demo_artifacts", exist_ok=True)
-with open("../demo_artifacts/mlflow_experiment.json", "w") as json_file:
+os.makedirs(f"{base_path}/demo_artifacts", exist_ok=True)
+with open(f"{base_path}/demo_artifacts/mlflow_experiment.json", "w") as json_file:
     json.dump(experiment.__dict__, json_file, indent=4)
 
 # COMMAND ----------
 # get experiment by id
 mlflow.get_experiment(experiment.experiment_id)
+
 # COMMAND ----------
 # search for experiment
 experiments = mlflow.search_experiments(
@@ -65,6 +86,7 @@ with mlflow.start_run(
     run_id = run.info.run_id
     mlflow.log_params({"type": "marvel_demo"})
     mlflow.log_metrics({"metric1": 1.0, "metric2": 2.0})
+
 # COMMAND ----------
 print(mlflow.active_run() is None)
 
@@ -73,7 +95,7 @@ run_info = mlflow.get_run(run_id=run_id).to_dictionary()
 print(run_info)
 
 # COMMAND ----------
-with open("../demo_artifacts/run_info.json", "w") as json_file:
+with open(f"{base_path}/demo_artifacts/run_info.json", "w") as json_file:
     json.dump(run_info, json_file, indent=4)
 
 # COMMAND ----------
@@ -83,7 +105,6 @@ print(run_info["data"]["metrics"])
 print(run_info["data"]["params"])
 
 # COMMAND ----------
-
 run_id = mlflow.search_runs(
     experiment_names=["/Shared/marvel-demo"],
     filter_string="tags.git_sha='1234567890abcd'",
@@ -97,6 +118,7 @@ mlflow.start_run(run_id=run_id)
 # COMMAND ----------
 # this will fail: not allowed to overwrite value
 mlflow.log_param("type", "marvel_demo2")
+
 # COMMAND ----------
 mlflow.log_param(key="purpose", value="get_certified")
 mlflow.end_run()
@@ -124,8 +146,9 @@ ax.plot([0, 1], [2, 3])
 
 mlflow.log_figure(fig, "figure.png")
 
-# log image dynamically
+
 # COMMAND ----------
+# log image dynamically
 import numpy as np
 
 for i in range(0,3):
@@ -149,8 +172,7 @@ runs = mlflow.search_runs(
                   "metrics.metric3>0 AND "
                   "tags.mlflow.source.type!='JOB'"
 )
-# COMMAND ----------
-runs
+print(runs)
 
 # COMMAND ----------
 # load objects
@@ -160,11 +182,12 @@ mlflow.artifacts.load_dict(f"{artifact_uri}/dict_example.json")
 
 # COMMAND ----------
 mlflow.artifacts.load_image(f"{artifact_uri}/figure.png")
+
 # COMMAND ----------
 # download artifacts
 mlflow.artifacts.download_artifacts(
     artifact_uri=f"{artifact_uri}/demo_artifacts",
-    dst_path="../downloaded_artifacts")
+    dst_path=f"{base_path}/downloaded_artifacts")
 
 # COMMAND ----------
 # nested runs: useful for hyperparameter tuning
@@ -175,4 +198,3 @@ with mlflow.start_run(run_name="marvel_top_level_run") as run:
                                 "m2": 2*i,
                                 "m3": 3+1.5*i})
 
-# COMMAND ----------

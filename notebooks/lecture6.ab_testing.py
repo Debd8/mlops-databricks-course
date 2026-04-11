@@ -1,14 +1,20 @@
 # Databricks notebook source
-# MAGIC %pip install marvelousmlops-marvel-characters-1.0.1-py3-none-any.whl
-
-# COMMAND ----------
-
-# MAGIC %restart_python
-
-# COMMAND ----------
-
-import hashlib
+# Databricks only, comment out when running locally
 import os
+import subprocess
+
+databricks_user = "your-email@gmail.com"
+whl_path = f"/Workspace/Users/{databricks_user}/.bundle/dev/marvel-characters/files/dist/marvel_characters-0.1.0-py3-none-any.whl"
+
+result = subprocess.run(
+    ["pip", "install", whl_path],
+    capture_output=True, text=True
+)
+print(result.stdout)
+print(result.stderr)
+
+# COMMAND ----------
+import hashlib
 import time
 
 import mlflow
@@ -18,16 +24,20 @@ from databricks.sdk.service.serving import (
     EndpointCoreConfigInput,
     ServedEntityInput,
 )
-from dotenv import load_dotenv
+
 from mlflow.models import infer_signature
 from pyspark.sql import SparkSession
-
 from marvel_characters.config import ProjectConfig, Tags
 from marvel_characters.models.basic_model import BasicModel
 from marvel_characters.utils import is_databricks
 
 # COMMAND ----------
+if is_databricks():
+    base_path = f"/Workspace/Users/{databricks_user}/.bundle/dev/marvel-characters/files"
+else:
+    base_path = os.path.abspath("../")
 
+# COMMAND ----------
 # Set up Databricks or local MLflow tracking
 spark = SparkSession.builder.getOrCreate()
 
@@ -37,12 +47,13 @@ os.environ["DBR_HOST"] = w.config.host
 os.environ["DBR_TOKEN"] = w.tokens.create(lifetime_seconds=1200).token_value
 
 if not is_databricks():
+    from dotenv import load_dotenv
     load_dotenv()
     profile = os.environ["PROFILE"]
     mlflow.set_tracking_uri(f"databricks://{profile}")
     mlflow.set_registry_uri(f"databricks-uc://{profile}")
 
-config = ProjectConfig.from_yaml(config_path="../project_config_marvel.yml", env="dev")
+config = ProjectConfig.from_yaml(config_path=f"{base_path}/project_config_marvel.yml", env="dev")
 # Define tags (customize as needed)
 tags = Tags(git_sha="dev", branch="ab-testing")
 
@@ -139,12 +150,26 @@ served_entities = [
     )
 ]
 
-workspace.serving_endpoints.create(
-    name=endpoint_name,
-    config=EndpointCoreConfigInput(
+try:
+    existing_endpoint = workspace.serving_endpoints.get(endpoint_name)
+    print(f"Endpoint '{endpoint_name}' already exists. Updating to version {entity_version}...")
+    workspace.serving_endpoints.update_config(
+        name=endpoint_name,
         served_entities=served_entities,
-    ),
-)
+    )
+    print(f"Endpoint updated successfully.")
+except Exception as e:
+    if "RESOURCE_DOES_NOT_EXIST" in str(e):
+        print(f"Creating new endpoint '{endpoint_name}'...")
+        workspace.serving_endpoints.create(
+            name=endpoint_name,
+            config=EndpointCoreConfigInput(
+                served_entities=served_entities,
+            ),
+        )
+        print(f"Endpoint created successfully.")
+    else:
+        raise
 
 # COMMAND ----------
 # Create sample request body
@@ -181,4 +206,3 @@ for i in range(len(dataframe_records)):
     print(f"Response Status: {status_code}")
     print(f"Response Text: {response_text}")
     time.sleep(0.2)
-# COMMAND ----------

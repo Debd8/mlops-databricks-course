@@ -88,6 +88,8 @@ checkpoints/
 
 # MLflow
 mlruns/
+demo_artifacts/
+
 
 # VSCode
 .vscode/

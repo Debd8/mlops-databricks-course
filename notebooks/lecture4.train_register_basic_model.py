@@ -1,32 +1,50 @@
 # Databricks notebook source
-
-import json
-
-import mlflow
-from dotenv import load_dotenv
-from pyspark.sql import SparkSession
-
-from marvel_characters.config import ProjectConfig, Tags
-from marvel_characters.models.basic_model import BasicModel
 import os
-
+import subprocess
 
 # Set up Databricks or local MLflow tracking
 def is_databricks():
     return "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 # COMMAND ----------
+# Databricks only, comment out when running locally
+databricks_user = "your-email@gmail.com"
+whl_path = f"/Workspace/Users/{databricks_user}/.bundle/dev/marvel-characters/files/dist/marvel_characters-0.1.0-py3-none-any.whl"
+
+result = subprocess.run(
+    ["pip", "install", whl_path],
+    capture_output=True, text=True
+)
+print(result.stdout)
+print(result.stderr)
+
+# COMMAND ----------
+if is_databricks():
+    base_path = f"/Workspace/Users/{databricks_user}/.bundle/dev/marvel-characters/files"
+else:
+    base_path = os.path.abspath("../")
+
+# COMMAND ----------
+# Run brew install libomp to install libomp on macOS if you get an error related to libomp when running the notebook locally
+import json
+import mlflow
+from pyspark.sql import SparkSession
+
+from marvel_characters.config import ProjectConfig, Tags
+from marvel_characters.models.basic_model import BasicModel
+
+# COMMAND ----------
 # If you have DEFAULT profile and are logged in with DEFAULT profile,
 # skip these lines
 
 if not is_databricks():
+    from dotenv import load_dotenv
     load_dotenv()
     profile = os.environ["PROFILE"]
     mlflow.set_tracking_uri(f"databricks://{profile}")
     mlflow.set_registry_uri(f"databricks-uc://{profile}")
 
-
-config = ProjectConfig.from_yaml(config_path="../project_config_marvel.yml", env="dev")
+config = ProjectConfig.from_yaml(config_path=f"{base_path}/project_config_marvel.yml", env="dev")
 spark = SparkSession.builder.getOrCreate()
 tags = Tags(**{"git_sha": "abcd12345", "branch": "main"})
 
@@ -53,7 +71,7 @@ model = mlflow.sklearn.load_model(f"models:/{basic_model.model_info.model_id}")
 # COMMAND ----------
 logged_model_dict = logged_model.to_dictionary()
 logged_model_dict["metrics"] = [x.__dict__ for x in logged_model_dict["metrics"]]
-with open("../demo_artifacts/logged_model.json", "w") as json_file:
+with open(f"{base_path}/demo_artifacts/logged_model.json", "w") as json_file:
     json.dump(logged_model_dict, json_file, indent=4)
 # COMMAND ----------
 logged_model.params
