@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         environment: [acc, prd]
-      max-parallel: 1  
+      max-parallel: 1
     environment: ${{ matrix.environment }}
     permissions:
       contents: write # to push tag
