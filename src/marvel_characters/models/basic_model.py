@@ -172,9 +172,14 @@ class BasicModel:
         :return: True if the current model performs better, False otherwise.
         """
         client = MlflowClient()
-        latest_model_version = client.get_model_version_by_alias(name=self.model_name, alias="latest-model")
-        latest_model_uri = f"models:/{latest_model_version.model_id}"
 
+        try:
+            latest_model_version = client.get_model_version_by_alias(name=self.model_name, alias="latest-model")
+        except Exception as e:
+            logger.info("No existing model found, treating current model as improved: %s", e)
+            return True  # First run — no baseline to compare against, always register
+
+        latest_model_uri = f"models:/{latest_model_version.model_id}"
         result = mlflow.models.evaluate(
             latest_model_uri,
             self.eval_data,
