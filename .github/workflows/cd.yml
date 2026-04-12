@@ -56,7 +56,7 @@ jobs:
               --var="git_sha=${{ github.sha }}" \
               --var="branch=${{ github.ref_name }}"
             if [ "${{ matrix.environment }}" = "prd" ]; then
-            echo "VERSION=$(cat version.txt)"
+            VERSION=$(cat version.txt)
             echo "VERSION=$VERSION"
             git tag $VERSION
             git push origin $VERSION
